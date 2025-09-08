@@ -5,3 +5,8 @@
 */.classpath
 */.project
 */build.sbt
+*/libraries/
+*/lib_managed/
+*/recitations/
+*/submission/
+*/target/

@@ -47,47 +47,47 @@ class FunSetSuite extends FunSuite {
     assert(1 + 2 === 3)
   }
 
-  
+
   import FunSets._
 
   test("contains is implemented") {
-    assert(contains(x => true, 100))
+    assert(contains(_ => true, 100))
   }
-  
+
   /**
    * When writing tests, one would often like to re-use certain values for multiple
    * tests. For instance, we would like to create an Int-set and have multiple test
    * about it.
-   * 
+   *
    * Instead of copy-pasting the code for creating the set into every test, we can
    * store it in the test class using a val:
-   * 
+   *
    *   val s1 = singletonSet(1)
-   * 
+   *
    * However, what happens if the method "singletonSet" has a bug and crashes? Then
    * the test methods are not even executed, because creating an instance of the
    * test class fails!
-   * 
+   *
    * Therefore, we put the shared values into a separate trait (traits are like
    * abstract classes), and create an instance inside each test method.
-   * 
+   *
    */
 
   trait TestSets {
-    val s1 = singletonSet(1)
-    val s2 = singletonSet(2)
-    val s3 = singletonSet(3)
+    val s1: Set = singletonSet(1)
+    val s2: Set = singletonSet(2)
+    val s3: Set = singletonSet(3)
   }
 
   /**
    * This test is currently disabled (by using "ignore") because the method
    * "singletonSet" is not yet implemented and the test would fail.
-   * 
+   *
    * Once you finish your implementation of "singletonSet", exchange the
    * function "ignore" by "test".
    */
-  ignore("singletonSet(1) contains 1") {
-    
+  test("singletonSet(1) contains 1") {
+
     /**
      * We create a new instance of the "TestSets" trait, this gives us access
      * to the values "s1" to "s3". 
@@ -95,18 +95,87 @@ class FunSetSuite extends FunSuite {
     new TestSets {
       /**
        * The string argument of "assert" is a message that is printed in case
-       * the test fails. This helps identifying which assertion failed.
+       * the test fails. This helps to identify which assertion failed.
        */
       assert(contains(s1, 1), "Singleton")
     }
   }
 
-  ignore("union contains all elements") {
+  test("union contains all elements") {
     new TestSets {
-      val s = union(s1, s2)
+      val s: Set = union(s1, s2)
       assert(contains(s, 1), "Union 1")
       assert(contains(s, 2), "Union 2")
       assert(!contains(s, 3), "Union 3")
+    }
+  }
+
+  test("singletonSet contains its element") {
+    new TestSets {
+      assert(contains(s1, 1), "Singleton 1 should contain 1")
+      assert(!contains(s1, 2), "Singleton 1 should not contain 2")
+    }
+  }
+
+  test("union contains all elements of each set") {
+    new TestSets {
+      val s : Set = union(s1, s2)
+      assert(contains(s, 1), "Union should contain 1")
+      assert(contains(s, 2), "Union should contain 2")
+      assert(!contains(s, 3), "Union should not contain 3")
+    }
+  }
+
+  test("intersect contains only common elements") {
+    new TestSets {
+      val s : Set = intersect(union(s1, s2), union(s2, s3))
+      assert(contains(s, 2), "Intersection should contain 2")
+      assert(!contains(s, 1), "Intersection should not contain 1")
+      assert(!contains(s, 3), "Intersection should not contain 3")
+    }
+  }
+
+  test("diff contains elements in first set but not in second") {
+    new TestSets {
+      val s : Set= diff(union(s1, s2), s2)
+      assert(contains(s, 1), "Diff should contain 1")
+      assert(!contains(s, 2), "Diff should not contain 2")
+    }
+  }
+
+  test("filter selects only elements that satisfy predicate") {
+    new TestSets {
+      val s : Set = union(union(s1, s2), s3)
+      val filtered : Set = filter(s, x => x % 2 == 1) // odd numbers
+      assert(contains(filtered, 1), "Filter should contain 1")
+      assert(contains(filtered, 3), "Filter should contain 3")
+      assert(!contains(filtered, 2), "Filter should not contain 2")
+    }
+  }
+
+  test("forall returns true if all elements satisfy predicate") {
+    new TestSets {
+      val s : Set= union(singletonSet(2), singletonSet(4))
+      assert(forall(s, x => x % 2 == 0), "All elements are even")
+      assert(!forall(s, x => x < 4), "Not all elements are < 4")
+    }
+  }
+
+  test("exists returns true if any element satisfies predicate") {
+    new TestSets {
+      val s : Set= union(singletonSet(1), singletonSet(2))
+      assert(exists(s, x => x % 2 == 0), "There exists an even element")
+      assert(!exists(s, x => x > 2), "No element greater than 2")
+    }
+  }
+
+  test("map transforms all elements of the set") {
+    new TestSets {
+      val s : Set = union(s1, s2) // {1,2}
+      val mapped : Set = map(s, x => x * 2) // {2,4}
+      assert(contains(mapped, 2), "Mapped set should contain 2")
+      assert(contains(mapped, 4), "Mapped set should contain 4")
+      assert(!contains(mapped, 1), "Mapped set should not contain 1")
     }
   }
 }

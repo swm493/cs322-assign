@@ -29,7 +29,15 @@ trait NodeScala {
    *  @param token        the cancellation token
    *  @param body         the response to write back
    */
-  private def respond(exchange: Exchange, token: CancellationToken, response: Response): Unit = ???
+  private def respond(exchange: Exchange, token: CancellationToken, response: Response): Unit = {
+    try {
+      while (token.nonCancelled && response.hasNext) {
+        exchange.write(response.next())
+      }
+    } finally {
+      exchange.close()
+    }
+  }
 
   /** A server:
    *  1) creates and starts an http listener
@@ -41,7 +49,38 @@ trait NodeScala {
    *  @param handler        a function mapping a request to a response
    *  @return               a subscription that can stop the server and all its asynchronous operations *entirely*
    */
-  def start(relativePath: String)(handler: Request => Response): Subscription = ???
+  def start(relativePath: String)(handler: Request => Response): Subscription = {
+    val listener = createListener(relativePath)
+    val listenerSubscription = listener.start()
+
+    val serverLoopSubscription = Future.run() { cts =>
+      async {
+        while (cts.nonCancelled) {
+          // 1. Await the next request (as suggested in PDF)
+          // await는 try/catch 블록 외부에 있어야 합니다.
+          // nextRequest()가 실패하면 await가 예외를 던지고,
+          // async 블록 전체가 실패하여 루프가 중단됩니다 (정상적인 동작).
+          val (req, ex) = await(listener.nextRequest())
+
+          // 2. Respond asynchronously (in a new Future)
+          if (cts.nonCancelled) {
+            Future { // 이 Future는 루프 내에서 "fire and forget" 방식입니다.
+              try {
+                respond(ex, cts, handler(req)) // cts.cancellationToken -> cts 로 수정
+              } catch {
+                case e: Exception => ex.close() // Handle respond errors
+              }
+            }
+          } else {
+            ex.close() // Server stopped between await and respond
+          }
+        } // 3. Loop
+      }
+    }
+
+    // Return a composite subscription
+    Subscription(listenerSubscription, serverLoopSubscription)
+  }
 
 }
 
